@@ -83,14 +83,14 @@ def reproducir_audio(texto):
 
 def main():
     # --- Diseño general ---
-    st.set_page_config(page_title="Asistente Virtual", page_icon="🤖")
+    st.set_page_config(page_title="SAZON BURGUER RESTAURANTE", page_icon="🤖")
 
     # --- Estilo CSS ---
     st.markdown("""
         <style>
             .stApp {
-                background: radial-gradient(circle, rgba(241,241,234,1) 32%, rgba(8,72,255,1) 88%, rgba(8,72,255,1) 88%, rgba(0,212,255,1) 97%);
-                color: white;
+               background: rgb(241,241,234);
+               background: radial-gradient(circle, rgba(241,241,234,1) 6%, rgba(255,127,8,1) 37%, rgba(235,255,8,1) 95%, rgba(0,0,255,1) 99%);
                 text-align: center;
             }
             .stChatMessage {
@@ -172,14 +172,14 @@ def main():
 
     # --- Barra lateral ---
     with st.sidebar:
-        st.title("🤖 OMARDENT ODONTOLOGIA")
+        st.title("🤖 RESTAURANTE SAZON BURGUER")
         st.markdown('<p style="color:green;">Brindamos la mejor atención</p>', unsafe_allow_html=True)
         st.markdown("---")
 
         # Selección de agente
         agente = st.radio(
             "Selecciona el agente:",
-            ["Asistente de atención al cliente", "Agente Administrativo", "Agente de solicitud de insumos"],
+            ["Asistente de atención al cliente", "Agente Administrativo"],
             index=0,
             help="Elige el agente con el que quieres interactuar."
         )
@@ -188,7 +188,7 @@ def main():
         st.subheader("🧠 Configuración del Modelo")
         modelo = st.selectbox(
             "Selecciona el modelo:",
-            ["gpt-3.5-turbo", "gpt-4"],
+            ["gpt-3.5-turbo", "gpt-4","gpt-4-32k","gpt-4o"],
             index=1,
             help="Elige el modelo de lenguaje de OpenAI que prefieras."
         )
@@ -220,4 +220,14 @@ def main():
     video_placeholder.markdown(video_html, unsafe_allow_html=True)
 
     # --- Entrada de usuario y manejo de la conversación ---
-    st.mark
+    st.markdown("## 💬 HABLAR CON EL AGENTE")
+    with st.form(key='chat_form'):
+        input_usuario = st.text_area("Escribe tu mensaje:", key="input_usuario", height=80)
+        submit_button = st.form_submit_button(label='Enviar')
+
+    if submit_button and input_usuario:
+        
+       st.markdown("---")
+
+if __name__ == "__main__":
+    main()

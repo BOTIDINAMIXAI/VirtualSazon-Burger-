@@ -44,7 +44,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "botidinamix-g.json"  # Reemplaza
 
 # Cargar credenciales desde Streamlit secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-openai.api_key = OPENAI_API_KEY
+
 
 # Instancia el cliente de Text-to-Speech
 client = texttospeech.TextToSpeechClient()

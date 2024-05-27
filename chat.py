@@ -1,7 +1,6 @@
 import streamlit as st
 import openai
 import json
-
 import nltk
 import os
 import tempfile
@@ -12,7 +11,6 @@ import PyPDF2
 import time
 from google.cloud import texttospeech
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
-import av
 
 # Configuración de NLTK
 nltk.download('punkt')
@@ -44,16 +42,25 @@ def preprocesar_texto(texto):
 
 # Cargar credenciales desde Streamlit secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
+
+# Verificar si el JSON es válido
 google_creds_json = st.secrets["GOOGLE_APPLICATION_CREDENTIALS"]
+try:
+    google_creds_dict = json.loads(google_creds_json)
+except json.JSONDecodeError:
+    st.error("Las credenciales de Google no son un JSON válido.")
+    google_creds_dict = None
 
-# Convertir el JSON de Google a un diccionario (si es necesario)
-google_creds_dict = json.loads(google_creds_json)
+if google_creds_dict:
+    # Guardar las credenciales de Google en un archivo temporal
+    with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
+        json.dump(google_creds_dict, temp_file)
+        temp_file_path = temp_file.name
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = temp_file_path
 
-# Configurar las credenciales de Google (si es necesario)
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_creds_dict
-
-# Instancia el cliente de Text-to-Speech
-client = texttospeech.TextToSpeechClient()
+# Instancia el cliente de Text-to-Speech si las credenciales son válidas
+if google_creds_dict:
+    client = texttospeech.TextToSpeechClient()
 
 # Función para obtener respuesta de OpenAI usando el modelo GPT y convertir a audio
 def obtener_respuesta(pregunta, texto_preprocesado, modelo, temperatura=0.5):
@@ -202,12 +209,4 @@ def main():
                 texto_pdf = extraer_texto_pdf(archivo_pdf)
                 texto_preprocesado = preprocesar_texto(texto_pdf)
             else:
-                texto_preprocesado = ""  # Sin contexto de PDF si no se carga un archivo
-
-            respuesta = obtener_respuesta(pregunta_usuario, texto_preprocesado, modelo, temperatura)
-            st.session_state.mensajes.append({"role": "assistant", "content": respuesta})
-            with st.chat_message("assistant"):
-                st.markdown(respuesta)
-
-if __name__ == "__main__":
-    main()
+                texto_preprocesado = ""  # Sin contexto de

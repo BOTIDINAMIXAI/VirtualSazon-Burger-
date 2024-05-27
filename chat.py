@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import json
+from dotenv import load_dotenv
 import nltk
 import os
 import tempfile
@@ -8,9 +8,7 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 import PyPDF2
-import time
 from google.cloud import texttospeech
-from streamlit_webrtc import webrtc_streamer, WebRtcMode
 
 # Configuración de NLTK
 nltk.download('punkt')
@@ -40,173 +38,186 @@ def preprocesar_texto(texto):
     tokens = [stemmer.stem(word) for word in tokens]
     return " ".join(tokens)
 
+# Cargar la clave API desde el archivo .env
+load_dotenv()
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "botidinamix-g.json"  # Reemplaza 'botidinamix-g.json' con el nombre de tu archivo de credenciales
+
 # Cargar credenciales desde Streamlit secrets
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+openai.api_key = OPENAI_API_KEY
 
-# Verificar si el JSON es válido
-google_creds_json = st.secrets["GOOGLE_APPLICATION_CREDENTIALS"]
-try:
-    google_creds_dict = json.loads(google_creds_json)
-except json.JSONDecodeError:
-    st.error("Las credenciales de Google no son un JSON válido.")
-    google_creds_dict = None
+# Instancia el cliente de Text-to-Speech
+client = texttospeech.TextToSpeechClient()
 
-if google_creds_dict:
-    # Guardar las credenciales de Google en un archivo temporal
-    with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
-        json.dump(google_creds_dict, temp_file)
-        temp_file_path = temp_file.name
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = temp_file_path
-
-# Instancia el cliente de Text-to-Speech si las credenciales son válidas
-if google_creds_dict:
-    client = texttospeech.TextToSpeechClient()
-
-# Función para obtener respuesta de OpenAI usando el modelo GPT y convertir a audio
-def obtener_respuesta(pregunta, texto_preprocesado, modelo, temperatura=0.5):
+# Función para obtener respuesta de OpenAI usando el modelo GPT
+def obtener_respuesta(pregunta, agente, texto_preprocesado, modelo, temperatura=0.5, top_p=1.0):
     try:
         response = openai.ChatCompletion.create(
             model=modelo,
             messages=[
-                {"role": "system", "content": "Actua como Ana la asesora de ventas del restaurante Sazon Burguer y resuelve las inquietudes de los clientes, tienes un tono muy amable y cordial"},
+                {"role": "system", "content": f"Eres Ana y trabajas en el restaurante Sazon Burguer, actúa como {agente} y resuelve las inquietudes de los clientes, tienes un tono muy amable y cordial, puedes utilizar emojis"},
                 {"role": "user", "content": f"{pregunta}\n\nContexto: {texto_preprocesado}"}
             ],
-            temperature=temperatura
+            temperature=temperatura,
+            top_p=top_p
         )
         respuesta = response.choices[0].message['content'].strip()
-
-        # Configura la solicitud de síntesis de voz
-        input_text = texttospeech.SynthesisInput(text=respuesta)
-        voice = texttospeech.VoiceSelectionParams(
-            language_code="es-ES", ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
-        )
-        audio_config = texttospeech.AudioConfig(
-            audio_encoding=texttospeech.AudioEncoding.MP3
-        )
-
-        # Realiza la solicitud de síntesis de voz
-        response = client.synthesize_speech(
-            input=input_text, voice=voice, audio_config=audio_config
-        )
-
-        # Reproduce el audio en Streamlit
-        st.audio(response.audio_content, format="audio/mp3")
         return respuesta
 
     except openai.OpenAIError as e:
         st.error(f"Error al comunicarse con OpenAI: {e}")
         return "Lo siento, no puedo procesar tu solicitud en este momento."
 
+def reproducir_audio(texto):
+    input_text = texttospeech.SynthesisInput(text=texto)
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="es-ES", ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+    )
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3
+    )
+    response = client.synthesize_speech(
+        input=input_text, voice=voice, audio_config=audio_config
+    )
+    return response.audio_content
+
 def main():
     # --- Diseño general ---
-    st.set_page_config(page_title="SAZON BURGUER", page_icon="🤖")
+    st.set_page_config(page_title="Asistente Virtual", page_icon="🤖")
 
-    # --- Barra lateral ---
-    with st.sidebar:
-        st.image("hamburguesa.jpg")
-        st.title("🤖 RESTAURANTE SAZON BURGUER")
-        st.markdown("---")
-        # --- Botones de historial ---
-        if st.button("Buscar Historial"):
-            st.session_state.mostrar_historial = True
-        if st.button("Borrar Historial"):
-            st.session_state.mensajes = []
-            st.session_state.mostrar_historial = False
-            st.success("Historial borrado correctamente")
-    
-    # --- Chatbot ---
-    if 'mensajes' not in st.session_state:
-        st.session_state.mensajes = []
-
-    for mensaje in st.session_state.mensajes:
-        with st.chat_message(mensaje["role"]):
-            st.markdown(mensaje["content"])
-
-    # Función para manejar la entrada de audio
-    def on_audio(audio_bytes):
-        with st.spinner("Transcribiendo..."):
-            transcript = openai.Audio.transcribe("whisper-1", audio_bytes)
-            pregunta_usuario = transcript["text"]
-            st.session_state.mensajes.append({"role": "user", "content": pregunta_usuario, "timestamp": time.time()})
-            with st.chat_message("user"):
-                st.markdown(pregunta_usuario)
-
-    st.subheader("🎤 Captura de voz")
-    st.info("Haz clic en el micrófono y comienza a hablar. Tu pregunta se transcribirá automáticamente.")
-    with st.container():
-        if st.button("Grabar 🎙️"):
-            st.session_state.run_webrtc = True
-        if st.session_state.get("run_webrtc", False):
-            webrtc_streamer(
-                key="speech-to-text",
-                mode=WebRtcMode.SENDONLY,
-                rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
-                media_stream_constraints={"video": False, "audio": True},
-                on_audio=on_audio,
-            )
-            st.session_state["run_webrtc"] = False
-
-    for mensaje in st.session_state.mensajes:
-        with st.chat_message(mensaje["role"]):
-            st.markdown(mensaje["content"])
-
-    # Selección de modelo de lenguaje
-    st.subheader("🧠 Configuración del Modelo")
-    modelo = st.selectbox(
-        "Selecciona el modelo:",
-        ["gpt-3.5-turbo", "gpt-4"],
-        index=0,
-        help="Elige el modelo de lenguaje de OpenAI que prefieras."
-    )
-
-    # --- Opciones adicionales ---
-    st.markdown("---")
-    temperatura = st.slider("🌡️ Temperatura", min_value=0.0, max_value=1.0, value=0.5, step=0.1)
-
-    # --- Video de fondo ---
-    with st.container():
-        st.markdown(
-            f"""
-            <style>
-            #video-container {{
+    # --- Estilo CSS ---
+    st.markdown("""
+        <style>
+            .stApp {
+                background: radial-gradient(circle, rgba(241,241,234,1) 32%, rgba(8,72,255,1) 88%, rgba(8,72,255,1) 88%, rgba(0,212,255,1) 97%);
+                color: white;
+                text-align: center;
+            }
+            .stChatMessage {
+                transition: background-color 0.5s, color 0.5s;
+            }
+            .stChatMessage[data-role="user"] {
+                background-color: rgba(0, 123, 255, 0.1);
+                color: #007bff;
+            }
+            .stChatMessage[data-role="assistant"] {
+                background-color: rgba(40, 167, 69, 0.1);
+                color: #28a745;
+            }
+            #video-container {
                 position: relative;
                 width: 100%;
                 padding-bottom: 56.25%;
                 background-color: lightblue;
                 overflow: hidden;
-            }}
-            #background-video {{
+            }
+            #background-video {
                 position: absolute;
                 top: 0;
                 left: 0;
                 width: 100%;
                 height: 100%;
-            }}
-            </style>
-            <div id="video-container">
-                <video id="background-video" autoplay loop muted playsinline>
-                    <source src="https://cdn.leonardo.ai/users/645c3d5c-ca1b-4ce8-aefa-a091494e0d09/generations/89dda365-bf17-4867-87d4-bd918d4a2818/89dda365-bf17-4867-87d4-bd918d4a2818.mp4" type="video/mp4">
-                </video>
-            </div>
-            """,
-            unsafe_allow_html=True,
+            }
+            .centered-input {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100px;
+                margin-bottom: 20px;
+            }
+            .centered-input textarea {
+                width: 80%;
+                height: 100px;
+                font-size: 20px;
+                padding: 10px;
+                border: 2px solid rgba(111, 66, 193, 1); 
+            }
+            .custom-spinner {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100%;
+            }
+            .custom-spinner div {
+                width: 20px;
+                height: 20px;
+                margin: 5px;
+                background-color: #007bff;
+                border-radius: 50%;
+                animation: custom-spinner 1.2s infinite ease-in-out;
+            }
+            .custom-spinner div:nth-child(1) {
+                animation-delay: -0.24s;
+            }
+            .custom-spinner div:nth-child(2) {
+                animation-delay: -0.12s;
+            }
+            .custom-spinner div:nth-child(3) {
+                animation-delay: 0;
+            }
+            @keyframes custom-spinner {
+                0%, 80%, 100% {
+                    transform: scale(0);
+                } 40% {
+                    transform: scale(1);
+                }
+            }
+            button[kind="primary"] {
+                background-color: rgba(111, 66, 193, 1); 
+                color: white;
+                border: none;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # --- Barra lateral ---
+    with st.sidebar:
+        st.title("🤖 OMARDENT ODONTOLOGIA")
+        st.markdown('<p style="color:green;">Brindamos la mejor atención</p>', unsafe_allow_html=True)
+        st.markdown("---")
+
+        # Selección de agente
+        agente = st.radio(
+            "Selecciona el agente:",
+            ["Asistente de atención al cliente", "Agente Administrativo", "Agente de solicitud de insumos"],
+            index=0,
+            help="Elige el agente con el que quieres interactuar."
         )
 
-    # --- Área principal de la aplicación ---
-    st.header("💬 Hablar con Ana asesor")
+        # Selección de modelo de lenguaje
+        st.subheader("🧠 Configuración del Modelo")
+        modelo = st.selectbox(
+            "Selecciona el modelo:",
+            ["gpt-3.5-turbo", "gpt-4"],
+            index=1,
+            help="Elige el modelo de lenguaje de OpenAI que prefieras."
+        )
 
-    # Carga de archivo PDF
-    archivo_pdf = st.file_uploader("📂 Cargar PDF", type='pdf')
+        # --- Opciones adicionales ---
+        st.markdown("---")
+        temperatura = st.slider("🌡️ Temperatura", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
+        top_p = st.slider("🎨 Top P", min_value=0.1, max_value=1.0, value=0.9, step=0.1)
 
-    pregunta_usuario = st.chat_input("Pregunta:")
-    if pregunta_usuario:
-        st.session_state.mensajes.append({"role": "user", "content": pregunta_usuario})
-        with st.chat_message("user"):
-            st.markdown(pregunta_usuario)
+        # --- Historial de conversaciones ---
+        st.markdown("---")
+        st.subheader("🗂️ Historial de Conversaciones")
+        if 'mensajes' not in st.session_state:
+            st.session_state['mensajes'] = []
 
-        with st.spinner("Ana está pensando..."):  # Mostrar spinner de carga
-            if archivo_pdf:
-                texto_pdf = extraer_texto_pdf(archivo_pdf)
-                texto_preprocesado = preprocesar_texto(texto_pdf)
-            else:
-                texto_preprocesado = ""  # Sin contexto de
+        historial_conversaciones = st.session_state['mensajes']
+        historial_opciones = [f"Conversación {i+1}" for i in range(len(historial_conversaciones))]
+        seleccion_historial = st.selectbox("Selecciona una conversación anterior:", ["Seleccionar"] + historial_opciones)
+
+    # --- Video de fondo ---
+    video_placeholder = st.empty()
+    video_html = """
+        <div id="video-container">
+            <video id="background-video" autoplay loop muted playsinline>
+                <source src="https://cdn.leonardo.ai/users/645c3d5c-ca1b-4ce8-aefa-a091494e0d09/generations/dd8e0b28-efa4-4937-aaab-a1a8ffa47568/dd8e0b28-efa4-4937-aaab-a1a8ffa47568.mp4" type="video/mp4">
+            </video>
+        </div>
+    """
+    video_placeholder.markdown(video_html, unsafe_allow_html=True)
+
+    # --- Entrada de usuario y manejo de la conversación ---
+    st.mark

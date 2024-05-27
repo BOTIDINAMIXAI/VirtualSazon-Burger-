@@ -1,2 +1,2 @@
-Secrets.toml
-historial 
+# Ignorar cualquier archivo secrets.toml en cualquier subdirectorio de .streamlit
+**/.streamlit/secrets.toml

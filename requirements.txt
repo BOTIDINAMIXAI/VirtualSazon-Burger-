@@ -57,3 +57,4 @@ urllib3==2.2.1
 watchdog==4.0.0
 google-cloud-texttospeech==2.15.0 
 streamlit-webrtc
+python-dotenv

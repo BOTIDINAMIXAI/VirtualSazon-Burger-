@@ -83,16 +83,5 @@
 170        </style>
 171    """, unsafe_allow_html=True)
 172
-173    # --- Barra lateral ---
-174    with st.sidebar:
-175        st.title("ð¤ RESTAURANTE SAZON BURGUER")
-176        st.markdown('<p style="color:green;">Brindamos la mejor atenciÃ³n</p>', unsafe_allow_html=True)
-177        st.markdown("---")
-178
-179        # SelecciÃ³n de agente
-180        agente = st.radio(
-181            "Selecciona el agente:",
-182            ["Asistente de atenciÃ³n al cliente", "Agente Administrativo"],
-183            index=0,
-184            help="Elige el agente con el que quieres interactuar."
+173  
 185        )

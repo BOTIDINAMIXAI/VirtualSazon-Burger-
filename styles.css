@@ -1,0 +1,98 @@
+# --- Estilo CSS ---
+89    st.markdown("""
+90        <style>
+91            .stApp {
+92               background: rgb(241,241,234);
+93               background: radial-gradient(circle, rgba(241,241,234,1) 6%, rgba(255,127,8,1) 37%, rgba(235,255,8,1) 95%, rgba(0,0,255,1) 99%);
+94                text-align: center;
+95            }
+96            .stChatMessage {
+97                transition: background-color 0.5s, color 0.5s;
+98            }
+99            .stChatMessage[data-role="user"] {
+100                background-color: rgba(0, 123, 255, 0.1);
+101                color: #007bff;
+102            }
+103            .stChatMessage[data-role="assistant"] {
+104                background-color: rgba(40, 167, 69, 0.1);
+105                color: #28a745;
+106            }
+107            #video-container {
+108                position: relative;
+109                width: 100%;
+110                padding-bottom: 56.25%;
+111                background-color: lightblue;
+112                overflow: hidden;
+113            }
+114            #background-video {
+115                position: absolute;
+116                top: 0;
+117                left: 0;
+118                width: 100%;
+119                height: 100%;
+120            }
+121            .centered-input {
+122                display: flex;
+123                justify-content: center;
+124                align-items: center;
+125                height: 100px;
+126                margin-bottom: 20px;
+127            }
+128            .centered-input textarea {
+129                width: 80%;
+130                height: 100px;
+131                font-size: 20px;
+132                padding: 10px;
+133                border: 2px solid rgba(111, 66, 193, 1); 
+134            }
+135            .custom-spinner {
+136                display: flex;
+137                justify-content: center;
+138                align-items: center;
+139                height: 100%;
+140            }
+141            .custom-spinner div {
+142                width: 20px;
+143                height: 20px;
+144                margin: 5px;
+145                background-color: #007bff;
+146                border-radius: 50%;
+147                animation: custom-spinner 1.2s infinite ease-in-out;
+148            }
+149            .custom-spinner div:nth-child(1) {
+150                animation-delay: -0.24s;
+151            }
+152            .custom-spinner div:nth-child(2) {
+153                animation-delay: -0.12s;
+154            }
+155            .custom-spinner div:nth-child(3) {
+156                animation-delay: 0;
+157            }
+158            @keyframes custom-spinner {
+159                0%, 80%, 100% {
+160                    transform: scale(0);
+161                } 40% {
+162                    transform: scale(1);
+163                }
+164            }
+165            button[kind="primary"] {
+166                background-color: rgba(111, 66, 193, 1); 
+167                color: white;
+168                border: none;
+169            }
+170        </style>
+171    """, unsafe_allow_html=True)
+172
+173    # --- Barra lateral ---
+174    with st.sidebar:
+175        st.title("ð¤ RESTAURANTE SAZON BURGUER")
+176        st.markdown('<p style="color:green;">Brindamos la mejor atenciÃ³n</p>', unsafe_allow_html=True)
+177        st.markdown("---")
+178
+179        # SelecciÃ³n de agente
+180        agente = st.radio(
+181            "Selecciona el agente:",
+182            ["Asistente de atenciÃ³n al cliente", "Agente Administrativo"],
+183            index=0,
+184            help="Elige el agente con el que quieres interactuar."
+185        )
